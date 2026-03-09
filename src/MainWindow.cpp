@@ -159,3 +159,8 @@ void MainWindow::browseOutput(){
     outputEntry->setText(outputDirPath);
 }
 
+void MainWindow::logMessage(const QString &msg, const QColor &color){
+    logText->setTextColor(color);
+    logText->append(msg);
+    logText->ensureCursorVisible();
+}
