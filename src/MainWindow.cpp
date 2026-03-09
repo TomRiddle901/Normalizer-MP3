@@ -2,10 +2,19 @@
 #include <QPushButton>
 #include <QLabel>
 #include <QTextEdit>
+#include <QProgressBar>
+#include <QLineEdit>
+#include <QComboBox>
+#include <QCheckBox>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QFileDialog>
+#include <QDir>
+#include <QFileInfo>
+#include <QThreadPool>
+#include <QRunnable>
 #include <QProcess>
-#include <QDebug>
+#include <QFile>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
