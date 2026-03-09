@@ -111,4 +111,12 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
     peakEntry = new QLineEdit("0.0");
     peakLayout->addWidget(peakEntry);
     layout->addLayout(peakLayout);
+
+    // Qualità
+    auto qualLayout = new QHBoxLayout();
+    qualLayout->addWidget(new QLabel("Qualità MP3:"));
+    qualityCombo = new QComboBox();
+    qualityCombo->addItems({"VBR 0 (massima)", "VBR 5 (media)", "CBR 320k", "CBR 256k", "CBR 192k"});
+    qualLayout->addWidget(qualityCombo);
+    layout->addLayout(qualLayout);
 }
