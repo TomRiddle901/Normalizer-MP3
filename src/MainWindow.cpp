@@ -21,4 +21,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     layout->addWidget(statusLabel);
     layout->addWidget(logText);
     layout->addWidget(normalizeButton);
+
+    setCentralWidget(central);
+    setWindowTitle("Normalizzatore MP3");
+    resize(500, 300);
 }
