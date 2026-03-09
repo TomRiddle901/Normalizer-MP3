@@ -62,4 +62,4 @@ class MainWindow : public QMainWindow
         QStringList mp3Files;
         QAtomicInt processedfiles;
         QStringList failedFiles;
-}
+};
