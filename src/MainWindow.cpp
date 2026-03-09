@@ -6,3 +6,13 @@
 #include <QFileDialog>
 #include <QProcess>
 #include <QDebug>
+
+MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
+{
+    auto central = new QWidget(this);
+    auto layout = new QVBoxLayout(central);
+
+    statusLabel = new QLabel("Normalizzatore MP3 pronto!", this);
+    logText = new QTextEdit(this);
+    logText->setReadOnly(true);
+}
