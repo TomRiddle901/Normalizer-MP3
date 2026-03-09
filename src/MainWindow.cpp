@@ -104,4 +104,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
     outLayout->addWidget(outputButton);
     layout->addLayout(outLayout);
     connect(outputButton, &QPushButton::clicked, this, &MainWindow::browseOutput);
+
+    // Picco target
+    auto peakLayout = new QHBoxLayout();
+    peakLayout->addWidget(new QLabel("Picco target (dB):"));
+    peakEntry = new QLineEdit("0.0");
+    peakLayout->addWidget(peakEntry);
+    layout->addLayout(peakLayout);
 }
