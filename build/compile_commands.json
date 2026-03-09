@@ -1,0 +1,20 @@
+[
+{
+  "directory": "/home/tommaso/Documenti/Normalizzatore/build",
+  "command": "/usr/bin/c++ -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NO_DEBUG -DQT_WIDGETS_LIB -I/home/tommaso/Documenti/Normalizzatore/build/Normalizzatore_autogen/include -isystem /usr/include/x86_64-linux-gnu/qt6/QtCore -isystem /usr/include/x86_64-linux-gnu/qt6 -isystem /usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -isystem /usr/include/x86_64-linux-gnu/qt6/QtWidgets -isystem /usr/include/x86_64-linux-gnu/qt6/QtGui -std=gnu++17 -o CMakeFiles/Normalizzatore.dir/Normalizzatore_autogen/mocs_compilation.cpp.o -c /home/tommaso/Documenti/Normalizzatore/build/Normalizzatore_autogen/mocs_compilation.cpp",
+  "file": "/home/tommaso/Documenti/Normalizzatore/build/Normalizzatore_autogen/mocs_compilation.cpp",
+  "output": "CMakeFiles/Normalizzatore.dir/Normalizzatore_autogen/mocs_compilation.cpp.o"
+},
+{
+  "directory": "/home/tommaso/Documenti/Normalizzatore/build",
+  "command": "/usr/bin/c++ -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NO_DEBUG -DQT_WIDGETS_LIB -I/home/tommaso/Documenti/Normalizzatore/build/Normalizzatore_autogen/include -isystem /usr/include/x86_64-linux-gnu/qt6/QtCore -isystem /usr/include/x86_64-linux-gnu/qt6 -isystem /usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -isystem /usr/include/x86_64-linux-gnu/qt6/QtWidgets -isystem /usr/include/x86_64-linux-gnu/qt6/QtGui -std=gnu++17 -o CMakeFiles/Normalizzatore.dir/src/main.cpp.o -c /home/tommaso/Documenti/Normalizzatore/src/main.cpp",
+  "file": "/home/tommaso/Documenti/Normalizzatore/src/main.cpp",
+  "output": "CMakeFiles/Normalizzatore.dir/src/main.cpp.o"
+},
+{
+  "directory": "/home/tommaso/Documenti/Normalizzatore/build",
+  "command": "/usr/bin/c++ -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NO_DEBUG -DQT_WIDGETS_LIB -I/home/tommaso/Documenti/Normalizzatore/build/Normalizzatore_autogen/include -isystem /usr/include/x86_64-linux-gnu/qt6/QtCore -isystem /usr/include/x86_64-linux-gnu/qt6 -isystem /usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -isystem /usr/include/x86_64-linux-gnu/qt6/QtWidgets -isystem /usr/include/x86_64-linux-gnu/qt6/QtGui -std=gnu++17 -o CMakeFiles/Normalizzatore.dir/src/MainWindow.cpp.o -c /home/tommaso/Documenti/Normalizzatore/src/MainWindow.cpp",
+  "file": "/home/tommaso/Documenti/Normalizzatore/src/MainWindow.cpp",
+  "output": "CMakeFiles/Normalizzatore.dir/src/MainWindow.cpp.o"
+}
+]
