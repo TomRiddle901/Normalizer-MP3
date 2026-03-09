@@ -16,6 +16,11 @@
 #include <QProcess>
 #include <QFile>
 
+#include <functional>
+#include <regex>
+#include <iostream>
+#include <atomic>
+
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
     auto central = new QWidget(this);
