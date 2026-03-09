@@ -138,4 +138,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
     // Progress bar
     progressBar = new QProgressBar();
     layout->addWidget(progressBar);
+
+    // Log
+    logText = new QTextEdit;
+    logText->setReadOnly(true);
+    layout->addWidget(logText);
 }
