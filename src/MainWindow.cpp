@@ -81,3 +81,9 @@ public:
         QStringList ffmpegParams;
         std::function<void(bool,const QString&)> cb;
 };
+
+// Main Window
+MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
+    auto central = new QWidget(this);
+    auto layout = new QVBoxLayout(central);
+}
