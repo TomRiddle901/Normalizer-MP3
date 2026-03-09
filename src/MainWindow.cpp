@@ -1,195 +1,276 @@
 #include "MainWindow.h"
-
+#include <QPushButton>
+#include <QLabel>
+#include <QTextEdit>
+#include <QProgressBar>
+#include <QLineEdit>
+#include <QComboBox>
+#include <QCheckBox>
 #include <QVBoxLayout>
-#include <QWidget>
+#include <QHBoxLayout>
 #include <QFileDialog>
-#include <QDirIterator>
+#include <QDir>
 #include <QFileInfo>
+#include <QThreadPool>
+#include <QRunnable>
 #include <QProcess>
 #include <QFile>
-#include <QMimeData>
-#include <QDragEnterEvent>
-#include <QDropEvent>
 
+#include <functional>
+#include <regex>
+#include <iostream>
+#include <atomic>
 #include <taglib/fileref.h>
 #include <taglib/tag.h>
 
-MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent),
-      totalFiles(0),
-      processedFiles(0)
-{
-    setAcceptDrops(true);
+// --- Task per normalizzazione ---
+class NormalizeTask : public QRunnable {
+public:
+    NormalizeTask(const QString &in, const QString &out, double peak, const QStringList &params,
+                  std::function<void(bool,const QString&)> callback)
+        : inputFile(in), outputFile(out), targetPeak(peak), ffmpegParams(params), cb(callback) {}
 
-    QWidget *central = new QWidget;
-    QVBoxLayout *layout = new QVBoxLayout;
+    void run() override{
+        bool success = false;
+        QString errorMsg;
+        QString tempFile = outputFile + ".tmp.mp3";
 
-    selectButton = new QPushButton("Seleziona cartella MP3");
-    logBox = new QTextEdit;
-    progressBar = new QProgressBar;
+        QString program = "./thirdparty/ffmpeg/ffmpeg";
 
-    logBox->setReadOnly(true);
+        // Rilevazione picco
+        QStringList cmdPeak = {"-i", inputFile, "-map", "0:a:0?", "-af", "volumedetect", "-f", "null", "-"};
+        QProcess peakProc;
+        peakProc.start(program, cmdPeak);
+        peakProc.waitForFinished(-1);
+        QString stderr = peakProc.readAllStandardError();
+
+        double currentPeak = 0.0;
+        std::regex rx("max_volume:\\s*([-\\d.]+)");
+        std::smatch match;
+        std::string s = stderr.toStdString();
+        if (std::regex_search(s, match, rx)){
+            currentPeak = std::stod(match[1]);
+        }else{
+            errorMsg = "Impossibile trovare max_volume";
+        }
+
+        double gain = targetPeak - currentPeak;
+
+        // Applica gain
+        QStringList cmdNorm = {"-i", inputFile, "-af", QString("volume=%1dB").arg(gain), "-map", "0:v?", "-map", "0:a:0?", "-map", "0:s?",
+                                "-map", "0:d?", "-map", "0:t?", "-c:v", "copy", "c:a", "libmp3lame"};
+        cmdNorm.append(ffmpegParams);
+        cmdNorm << "-y" << tempFile;
+
+        QProcess normProc;
+        normProc.start(program, cmdNorm);
+        normProc.waitForFinished(-1);
+        if(normProc.exitCode() != 0){
+            errorMsg = "ffmpeg normalizzazione fallito";
+        }else{
+            QFile::remove(outputFile);
+            QFile::rename(tempFile, outputFile);
+            success = true;
+        }
+
+        cb(success, errorMsg);
+    }
+
+    private:
+        QString inputFile;
+        QString outputFile;
+        double targetPeak;
+        QStringList ffmpegParams;
+        std::function<void(bool,const QString&)> cb;
+};
+
+// Main Window
+MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
+    auto central = new QWidget(this);
+    auto layout = new QVBoxLayout(central);
+
+    // Input
+    auto inLayout = new QHBoxLayout();
+    inputEntry = new QLineEdit();
+    inputButton = new QPushButton();
+    inLayout->addWidget(inputEntry);
+    inLayout->addWidget(inputButton);
+    layout->addLayout(inLayout);
+    connect(inputButton, &QPushButton::clicked, this, &MainWindow::browseInput);
+
+    // Output
+    auto outLayout = new QHBoxLayout();
+    outputEntry = new QLineEdit();
+    outputButton = new QPushButton();
+    outLayout->addWidget(outputEntry);
+    outLayout->addWidget(outputButton);
+    layout->addLayout(outLayout);
+    connect(outputButton, &QPushButton::clicked, this, &MainWindow::browseOutput);
+
+    // Picco target
+    auto peakLayout = new QHBoxLayout();
+    peakLayout->addWidget(new QLabel("Picco target (dB):"));
+    peakEntry = new QLineEdit("0.0");
+    peakLayout->addWidget(peakEntry);
+    layout->addLayout(peakLayout);
+
+    // Qualità
+    auto qualLayout = new QHBoxLayout();
+    qualLayout->addWidget(new QLabel("Qualità MP3:"));
+    qualityCombo = new QComboBox();
+    qualityCombo->addItems({"VBR 0 (massima)", "VBR 5 (media)", "CBR 320k", "CBR 256k", "CBR 192k"});
+    qualLayout->addWidget(qualityCombo);
+    layout->addLayout(qualLayout);
+
+    // Sovrascrivi
+    overwriteCheck = new QCheckBox("Sovrascrivi file esistenti");
+    layout->addWidget(overwriteCheck);
+
+    // Start/Stop
+    auto ctrlLayout = new QHBoxLayout();
+    startButton = new QPushButton("Avvia normalizzazione");
+    stopButton = new QPushButton("Stop");
+    stopButton->setEnabled(false);
+    ctrlLayout->addWidget(startButton);
+    ctrlLayout->addWidget(stopButton);
+    layout->addLayout(ctrlLayout);
+    connect(startButton, &QPushButton::clicked, this, &MainWindow::startNormalization);
+    connect(stopButton, &QPushButton::clicked, this, &MainWindow::stopNormalization);
+
+    // Progress bar
+    progressBar = new QProgressBar();
+    layout->addWidget(progressBar);
+
+    // Log
+    logText = new QTextEdit;
+    logText->setReadOnly(true);
+    layout->addWidget(logText);
+
+    setCentralWidget(central);
+    setWindowTitle("Normalizzatore MP3");
+    resize(700, 600);
+}
+
+// Slots
+void MainWindow::browseInput(){
+    inputDirPath = QFileDialog::getExistingDirectory(this, "Seleziona cartella di input");
+    inputEntry->setText(inputDirPath);
+}
+void MainWindow::browseOutput(){
+    outputDirPath = QFileDialog::getExistingDirectory(this, "Seleziona cartella di output");
+    outputEntry->setText(outputDirPath);
+}
+void MainWindow::stopNormalization(){
+    stopFlag = true;
+    logMessage("Arresto richiesto...",Qt::red);
+}
+
+void MainWindow::logMessage(const QString &msg, const QColor &color){
+    logText->setTextColor(color);
+    logText->append(msg);
+    logText->ensureCursorVisible();
+}
+
+void MainWindow::updateProgress(){
+    if (mp3Files.isEmpty()){return;}
+
+    int val = processedFiles*100/mp3Files.size();
+    progressBar->setValue(val);
+}
+
+void MainWindow::startNormalization(){
+    if (isRunning){return;}
+
+    inputDirPath = inputEntry->text().trimmed();
+    outputDirPath = outputEntry->text().trimmed();
+    targetPeak = peakEntry->text().toDouble();
+    quality = qualityCombo->currentText();
+    overwrite = overwriteCheck->isChecked();
+
+    if (inputDirPath.isEmpty() || outputDirPath.isEmpty()){
+        logMessage("Seleziona la cartella di input/output", Qt::red);
+        return;
+    }
+
+    QDir inDir(inputDirPath);
+    mp3Files = inDir.entryList(QStringList() << "*.mp3", QDir::Files|QDir::NoDotAndDotDot);
+    if (mp3Files.isEmpty()){
+        logMessage("Nessun MP3 trovato", Qt::red);
+        return;
+    }
+
+    processedFiles = 0;
+    failedFiles.clear();
+    stopFlag = false;
+    isRunning = true;
+    startButton->setEnabled(false);
+    stopButton->setEnabled(true);
     progressBar->setValue(0);
 
-    layout->addWidget(selectButton);
-    layout->addWidget(progressBar);
-    layout->addWidget(logBox);
-
-    central->setLayout(layout);
-    setCentralWidget(central);
-
-    connect(selectButton, &QPushButton::clicked,
-            this, &MainWindow::selectFolder);
-
-    setWindowTitle("MP3 Normalizer");
-    resize(650,450);
-}
-
-void MainWindow::logMessage(const QString &msg)
-{
-    logBox->append(msg);
-}
-
-QStringList MainWindow::scanMp3Recursive(const QString &path)
-{
-    QStringList files;
-
-    QDirIterator it(path,
-                    QStringList() << "*.mp3",
-                    QDir::Files,
-                    QDirIterator::Subdirectories);
-
-    while(it.hasNext())
-        files << it.next();
-
-    return files;
-}
-
-void MainWindow::selectFolder()
-{
-    QString dir = QFileDialog::getExistingDirectory(this,"Seleziona cartella");
-
-    if(dir.isEmpty())
-        return;
-
-    QStringList files = scanMp3Recursive(dir);
-
-    totalFiles = files.size();
-    processedFiles = 0;
-
-    progressBar->setMaximum(totalFiles);
-
-    for(const QString &file : files)
-        processFile(file);
-
-    logMessage("Completato.");
-}
-
-void MainWindow::dragEnterEvent(QDragEnterEvent *event)
-{
-    if(event->mimeData()->hasUrls())
-        event->acceptProposedAction();
-}
-
-void MainWindow::dropEvent(QDropEvent *event)
-{
-    QList<QUrl> urls = event->mimeData()->urls();
-
-    QStringList files;
-
-    for(const QUrl &url : urls)
-    {
-        QFileInfo info(url.toLocalFile());
-
-        if(info.isDir())
-            files += scanMp3Recursive(info.absoluteFilePath());
-        else if(info.suffix().toLower() == "mp3")
-            files << info.absoluteFilePath();
+    QStringList ffmpegParams;
+    if (quality.startsWith("VBR 0")){
+        ffmpegParams = {"-q:a", "0"};
+    }else if (quality.startsWith("VBR 5")){
+        ffmpegParams = {"-q:a", "5"};
+    }else if (quality.startsWith("CBR 320")){
+        ffmpegParams = {"-b:a", "320k"};
+    }else if (quality.startsWith("CBR 256")){
+        ffmpegParams = {"-b:a", "256k"};
+    }else if (quality.startsWith("CBR 192")){
+        ffmpegParams = {"-b:a", "192k"};
     }
 
-    totalFiles = files.size();
-    processedFiles = 0;
+    for (const QString &f : mp3Files){
+        if (stopFlag){break;}
+        QString inputFile = inputDirPath + "/" + f;
+        QString outputFile = outputDirPath + "/" + f;
+        if (QFile::exists(outputFile) && !overwrite){
+            logMessage("Salta (esistente): " + f, Qt::blue);
+            processedFiles++;
+            updateProgress();
+            continue;
+        }
+        auto cb = [this,f](bool ok, const QString &err){
+            if (ok) {
+                logMessage("OK: " + f, Qt::green);
+            }else{
+                logMessage("ERRORE: " + f + err, Qt::red);
+                failedFiles.append(f);
+            }
 
-    progressBar->setMaximum(totalFiles);
-
-    for(const QString &file : files)
-        processFile(file);
+            processedFiles++;
+            updateProgress();
+            if (processedFiles >= mp3Files.size()){
+                isRunning = false;
+                startButton->setEnabled(true);
+                stopButton->setEnabled(false);
+                logMessage("Elaborazione completata", Qt::darkMagenta);
+            }
+        };
+        NormalizeTask *task = new NormalizeTask(inputFile, outputFile, targetPeak, ffmpegParams, cb);
+        task->setAutoDelete(true);
+        QThreadPool::globalInstance()->start(task);
+    }   
 }
 
-void MainWindow::processFile(const QString &inputFile)
-{
-    QFileInfo info(inputFile);
+void MainWindow::copyID3Tags(const QString &src, const QString &dst){
+    TagLib::FileRef srcFile(src.toUtf8().constData());
+    TagLib::FileRef dstFile(dst.toUtf8().constData());
 
-    QString outputFile =
-        info.absolutePath() + "/" +
-        info.completeBaseName() + "_normalized.mp3";
+    if (!srcFile.isNull() && !dstFile.isNull() && srcFile.tag() && dstFile.tag()){
+        TagLib::Tag *s = srcFile.tag();
+        TagLib::Tag *d = dstFile.tag();
 
-    logMessage("Processing: " + inputFile);
-
-    if(normalizeSingleFile(inputFile, outputFile))
-    {
-        copyID3Tags(inputFile, outputFile);
-        logMessage("OK");
+        d->setTitle(s->title());
+        d->setArtist(s->artist());
+        d->setAlbum(s->album());
+        d->setComment(s->comment());
+        d->setGenre(s->genre());
+        d->setYear(s->year());
+        d->setTrack(s->track());
+        
+        dstFile.save();
+    }else{
+        logMessage("Avvio: copia tag fallita per " + dst, Qt::darkYellow);
     }
-    else
-    {
-        logMessage("Errore");
-    }
-
-    processedFiles++;
-    progressBar->setValue(processedFiles);
-}
-
-bool MainWindow::normalizeSingleFile(const QString &inputFile,
-                                     const QString &outputFile)
-{
-    QString tempFile = outputFile + ".tmp";
-
-    QProcess proc;
-
-    QString program = "thirdparty/ffmpeg/ffmpeg";
-
-    QStringList args;
-    args << "-i"
-         << inputFile
-         << "-filter:a"
-         << "loudnorm"
-         << "-y"
-         << tempFile;
-
-    proc.start(program,args);
-    proc.waitForFinished(-1);
-
-    if(proc.exitCode() != 0)
-    {
-        logMessage("ffmpeg errore");
-        return false;
-    }
-
-    QFile::remove(outputFile);
-    QFile::rename(tempFile, outputFile);
-
-    return true;
-}
-
-void MainWindow::copyID3Tags(const QString &inputFile,
-                             const QString &outputFile)
-{
-    TagLib::FileRef src(inputFile.toStdString().c_str());
-    TagLib::FileRef dst(outputFile.toStdString().c_str());
-
-    if(src.isNull() || dst.isNull())
-        return;
-
-    TagLib::Tag *srcTag = src.tag();
-    TagLib::Tag *dstTag = dst.tag();
-
-    dstTag->setTitle(srcTag->title());
-    dstTag->setArtist(srcTag->artist());
-    dstTag->setAlbum(srcTag->album());
-    dstTag->setGenre(srcTag->genre());
-    dstTag->setYear(srcTag->year());
-    dstTag->setTrack(srcTag->track());
-
-    dst.file()->save();
 }
