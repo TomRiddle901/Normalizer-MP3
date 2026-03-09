@@ -20,6 +20,8 @@
 #include <regex>
 #include <iostream>
 #include <atomic>
+#include <taglib/fileref.h>
+#include <taglib/tag.h>
 
 // --- Task per normalizzazione ---
 class NormalizeTask : public QRunnable {
@@ -250,3 +252,4 @@ void MainWindow::startNormalization(){
         QThreadPool::globalInstance()->start(task);
     }   
 }
+
