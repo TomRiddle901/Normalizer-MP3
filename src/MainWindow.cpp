@@ -38,4 +38,21 @@ void MainWindow::onNormalizeClicked()
     statusLabel->setText("Normalizzazione in corso...");
 
     // Chiamata ffmpeg per normalizzare il volume
+    QString outputFile = file;
+    outputFile.insert(file.lastIndexOf('.'), "_normalized");
+
+    QString program = "./thirdparty/ffmpeg/ffmpeg"; // Persorso locale
+    QStringList arguments;
+    arguments << "-i" << file << "-filter:a" << "loudnorm" << outputFile;
+
+    QProcess ffmpeg;
+    ffmpeg.start(program, arguments);
+    if (!ffmpeg.waitForFinished()){
+        logText->append("Errore nella normalizzazione");
+        statusLabel->setText("Errore!");
+        return;
+    }
+
+    logText->append("File normalizzato salvato come: " + outputFile);
+    statusLabel->setText("Normalizzazione completata!");
 }
