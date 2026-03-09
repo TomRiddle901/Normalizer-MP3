@@ -134,4 +134,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
     layout->addLayout(ctrlLayout);
     connect(startButton, &QPushButton::clicked, this, &MainWindow::startNormalization);
     connect(stopButton, &QPushButton::clicked, this, &MainWindow::stopNormalization);
+
+    // Progress bar
+    progressBar = new QProgressBar();
+    layout->addWidget(progressBar);
 }
