@@ -209,33 +209,34 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
     QString tempFile = outputFile + ".tmp.mp3";
     QString ffmpegProgram = "./thirdparty/ffmpeg/ffmpeg";
 
-    // Rilevazione picco
+    // --- Rilevazione picco ---
     QProcess peakProc;
     QStringList cmdPeak = {"-i", inputFile, "-af", "volumedetect", "-f", "null", "-"};
     peakProc.start(ffmpegProgram, cmdPeak);
     peakProc.waitForFinished(-1);
 
-    QString stderrPeak = peakProc.readAllStandardError();  // <-- UNA sola dichiarazione
-    std::string stderrStr = stderrPeak.toStdString();      // converti in std::string stabile
+    QString stderrPeak = peakProc.readAllStandardError();
+    QRegularExpression re("max_volume:\\s*([-+]?[0-9]*\\.?[0-9]+)\\s*dB");
+    QRegularExpressionMatch match = re.match(stderrPeak);
 
-    // Regex compatibile con numeri negativi e decimali
-    std::regex rx("max_volume:\\s*([-+]?[0-9]*\\.?[0-9]+)\\s*dB");
-    std::smatch match;
     double currentPeak = 0.0;
-
-    if (std::regex_search(stderrStr, match, rx)) {
-        currentPeak = std::stod(match[1].str());
-    } else {    
+    if(match.hasMatch()) {
+        currentPeak = match.captured(1).toDouble();
+    } else {
         logMessage("Impossibile rilevare max_volume per " + inputFile, Qt::red);
         return false;
-    }   
+    }
 
     double gain = targetPeak - currentPeak;
 
-    // Normalizzazione
-    QStringList cmdNorm = {"-i", inputFile, "-af", QString("volume=%1dB").arg(gain),
-                           "-map", "0:v?", "-map", "0:a:0?", "-map", "0:s?", "-map", "0:d?", "-map", "0:t?",
-                           "-c:v", "copy", "-c:a", "libmp3lame"};
+    // --- Normalizzazione ---
+    QStringList cmdNorm = {
+        "-i", inputFile,
+        "-af", QString("volume=%1dB").arg(gain),
+        "-map", "0:v?", "-map", "0:a:0?", "-map", "0:s?", "-map", "0:d?", "-map", "0:t?",
+        "-c:v", "copy",
+        "-c:a", "libmp3lame"
+    };
     cmdNorm.append(ffmpegAudioParams);
     cmdNorm << "-y" << tempFile;
 
@@ -248,10 +249,10 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
         return false;
     }
 
-    // Copia tag ID3
+    // --- Copia tag ID3 ---
     copyID3Tags(inputFile, tempFile);
 
-    // Sostituisci file
+    // --- Sostituisci file finale ---
     QFile::remove(outputFile);
     if(!QFile::rename(tempFile, outputFile)) {
         logMessage("Errore nel rinominare " + tempFile + " → " + outputFile, Qt::red);
