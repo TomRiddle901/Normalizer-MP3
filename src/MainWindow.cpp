@@ -15,4 +15,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     statusLabel = new QLabel("Normalizzatore MP3 pronto!", this);
     logText = new QTextEdit(this);
     logText->setReadOnly(true);
+
+    normalizeButton = new QPushButton("Seleziona e normalizza MP3", this);
+
+    layout->addWidget(statusLabel);
+    layout->addWidget(logText);
+    layout->addWidget(normalizeButton);
 }
