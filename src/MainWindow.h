@@ -31,7 +31,7 @@ private slots:
 private:
     void logMessage(const QString &msg, const QColor &color = Qt::black);
     void updateProgress();
-    void processFiles();
+    void processNextFile();
     bool normalizeSingleFile(const QString &inputFile, const QString &outputFile, double targetPeak, const QStringList &ffmpegAudioParams);
     void copyID3Tags(const QString &src, const QString &dst);
 
