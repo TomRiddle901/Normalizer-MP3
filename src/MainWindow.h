@@ -24,10 +24,17 @@ class MainWindow : public QMainWindow
         MainWindow(QWidget *parent = nullptr);
 
     private slots:
-        void onNormalizeClicked();
+        void browseInput();
+        void browseOutput();
+        void startNormalization();
+        void stopNormalization();
 
     private:
-        QPushButton *normalizeButton;
-        QLabel *statusLabel;
-        QTextEdit *logText;
+        void logMessage(const QString &msg, const QColor &color = Qt::black);
+        void updateProgress();
+        void processFiles();
+        void normalizeSingleFile(const QString &inputFile, const QString &outputFile, double targetPeak, const QStringList &ffmpegAudioParams);
+        void copyID3Tags(const QString &src, const QString &dst);
+
+        // GUI
 };
