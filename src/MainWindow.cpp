@@ -86,4 +86,13 @@ public:
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
     auto central = new QWidget(this);
     auto layout = new QVBoxLayout(central);
+
+    // Input
+    auto inLayout = new QHBoxLayout();
+    inputEntry = new QLineEdit();
+    inputButton = new QPushButton();
+    inLayout->addWidget(inputEntry);
+    inLayout->addWidget(inputButton);
+    layout->addLayout(inLayout);
+    connect(inputButton, &QPushButton::clicked, this, &MainWindow::browseInput);
 }
