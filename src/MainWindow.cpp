@@ -175,3 +175,78 @@ void MainWindow::updateProgress(){
     int val = processedFiles*100/mp3Files.size();
     progressBar->setValue(val);
 }
+
+void MainWindow::startNormalization(){
+    if (isRunning){return;}
+
+    inputDirPath = inputEntry->text().trimmed();
+    outputDirPath = outputEntry->text().trimmed();
+    targetPeak = peakEntry->text().toDouble();
+    quality = qualityCombo->currentText();
+    overwrite = overwriteCheck->isChecked();
+
+    if (inputDirPath.isEmpty() || outputDirPath.isEmpty()){
+        logMessage("Seleziona la cartella di input/output", Qt::red);
+        return;
+    }
+
+    QDir inDir(inputDirPath);
+    mp3Files = inDir.entryList(QStringList() << "*.mp3", QDir::Files|QDir::NoDotAndDotDot);
+    if (mp3Files.isEmpty()){
+        logMessage("Nessun MP3 trovato", Qt::red);
+        return;
+    }
+
+    processedFiles = 0;
+    failedFiles.clear();
+    stopFlag = false;
+    isRunning = true;
+    startButton->setEnabled(false);
+    stopButton->setEnabled(true);
+    progressBar->setValue(0);
+
+    QStringList ffmpegParams;
+    if (quality.startsWith("VBR 0")){
+        ffmpegParams = {"-q:a", "0"};
+    }else if (quality.startsWith("VBR 5")){
+        ffmpegParams = {"-q:a", "5"};
+    }else if (quality.startsWith("CBR 320")){
+        ffmpegParams = {"-b:a", "320k"};
+    }else if (quality.startsWith("CBR 256")){
+        ffmpegParams = {"-b:a", "256k"};
+    }else if (quality.startsWith("CBR 192")){
+        ffmpegParams = {"-b:a", "192k"};
+    }
+
+    for (const QString &f : mp3Files){
+        if (stopFlag){break;}
+        QString inputFile = inputDirPath + "/" + f;
+        QString outputFile = outputDirPath + "/" + f;
+        if (QFile::exists(outputFile) && !overwrite){
+            logMessage("Salta (esistente): " + f, Qt::blue);
+            processedFiles++;
+            updateProgress();
+            continue;
+        }
+        auto cb = [this,f](bool ok, const QString &err){
+            if (ok) {
+                logMessage("OK: " + f, Qt::green);
+            }else{
+                logMessage("ERRORE: " + f + err, Qt::red);
+                failedFiles.append(f);
+            }
+
+            processedFiles++;
+            updateProgress();
+            if (processedFiles >= mp3Files.size()){
+                isRunning = false;
+                startButton->setEnabled(true);
+                stopButton->setEnabled(false);
+                logMessage("Elaborazione completata", Qt::darkMagenta);
+            }
+        };
+        NormalizeTask *task = new NormalizeTask(inputFile, outputFile, targetPeak, ffmpegParams, cb);
+        task->setAutoDelete(true);
+        QThreadPool::globalInstance()->start(task);
+    }   
+}
