@@ -25,4 +25,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     setCentralWidget(central);
     setWindowTitle("Normalizzatore MP3");
     resize(500, 300);
+
+    connect(normalizeButton, &QPushButton::clicked, this, &MainWindow::onNormalizeClicked);
 }
