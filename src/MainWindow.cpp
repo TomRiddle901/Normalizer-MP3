@@ -28,3 +28,14 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
     connect(normalizeButton, &QPushButton::clicked, this, &MainWindow::onNormalizeClicked);
 }
+
+void MainWindow::onNormalizeClicked()
+{
+    QString file = QFileDialog::getOpenFileName(this, "Seleziona MP3", "", "MP3 Files (*.mp3)");
+    if (file.isEmpty()){return;}
+
+    logText->append("File selezionato: " + file);
+    statusLabel->setText("Normalizzazione in corso...");
+
+    // Chiamata ffmpeg per normalizzare il volume
+}
