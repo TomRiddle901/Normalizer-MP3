@@ -164,3 +164,10 @@ void MainWindow::logMessage(const QString &msg, const QColor &color){
     logText->append(msg);
     logText->ensureCursorVisible();
 }
+
+void MainWindow::updateProgress(){
+    if (mp3Files.isEmpty()){return;}
+
+    int val = processedFiles*100/mp3Files.size();
+    progressBar->setValue(val);
+}
