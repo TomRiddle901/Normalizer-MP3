@@ -2,11 +2,18 @@
 
 #include <QMainWindow>
 #include <QString>
+#include <QColor>
+#include <QAtomicInt>
+#include <QStringList>
 
 QT_BEGIN_NAMESPACE;
 class QPushButton;
 class QLabel;
 class QTextEdit;
+class QProgressBar;
+class QLineEdit;
+class QComboBox;
+class QCheckBox;
 QT_END_NAMESPACE;
 
 class MainWindow : public QMainWindow
