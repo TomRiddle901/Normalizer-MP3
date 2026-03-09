@@ -1,2 +1,0 @@
-set(__QT_DEPLOY_TARGET_Normalizzatore_FILE /home/tommaso/Documenti/Normalizzatore/build/Normalizzatore)
-set(__QT_DEPLOY_TARGET_Normalizzatore_TYPE EXECUTABLE)
