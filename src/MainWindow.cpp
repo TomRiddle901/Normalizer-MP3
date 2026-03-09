@@ -158,6 +158,10 @@ void MainWindow::browseOutput(){
     outputDirPath = QFileDialog::getExistingDirectory(this, "Seleziona cartella di output");
     outputEntry->setText(outputDirPath);
 }
+void MainWindow::stopNormalization(){
+    stopFlag = true;
+    logMessage("Arresto richiesto...",Qt::red);
+}
 
 void MainWindow::logMessage(const QString &msg, const QColor &color){
     logText->setTextColor(color);
