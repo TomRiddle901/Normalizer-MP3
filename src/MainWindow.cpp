@@ -210,26 +210,31 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
     QString ffmpegProgram = "./thirdparty/ffmpeg/ffmpeg";
 
     // --- Rilevazione picco ---
-    QStringList cmdPeak = {"-hide_banner", "-nostats", "-i", inputFile, "-af", "volumedetect", "-f", "null", "-"};
+    QStringList cmdPeak = {"-i", inputFile, "-af", "volumedetect", "-f", "null", "-"};
     QProcess peakProc;
     peakProc.start(ffmpegProgram, cmdPeak);
     peakProc.waitForFinished(-1);
 
-    double currentPeak = 0.0;
-    QStringList stderrLines = QString(peakProc.readAllStandardError()).split('\n');
+    QString peakOutput = peakProc.readAllStandardError();
+    QStringList lines = peakOutput.split('\n');
 
-    for(const QString &line : stderrLines) {
-        if(line.contains("max_volume")) {
-            QRegularExpression re("([-+]?[0-9]*\\.?[0-9]+)"); // numero positivo o negativo, con o senza decimali
-            QRegularExpressionMatch match = re.match(line);
-            if(match.hasMatch()) {
-                currentPeak = match.captured(1).toDouble();
-                break;
+    double currentPeak = -1000.0; // valore impossibile per verificare fallimento
+
+    for (const QString &line : lines) {
+        if (line.contains("max_volume")) {
+            QStringList parts = line.split(":");
+            if (parts.size() >= 2) {
+                bool ok = false;
+                double val = parts[1].trimmed().remove("dB").toDouble(&ok);
+                if (ok) {
+                    currentPeak = val;
+                    break;
+                }
             }
         }
     }
 
-    if(currentPeak == 0.0) {
+    if(currentPeak <= -999) {
         logMessage("Impossibile rilevare max_volume per " + inputFile, Qt::red);
         return false;
     }
@@ -238,10 +243,9 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
 
     // --- Normalizzazione ---
     QStringList cmdNorm = {
-        "-hide_banner", "-i", inputFile,
+        "-i", inputFile,
         "-af", QString("volume=%1dB").arg(gain),
-        "-map", "0:v?", "-map", "0:a:0?", "-map", "0:s?", "-map", "0:d?", "-map", "0:t?",
-        "-c:v", "copy", "-c:a", "libmp3lame"
+        "-c:a", "libmp3lame"
     };
     cmdNorm.append(ffmpegAudioParams);
     cmdNorm << "-y" << tempFile;
@@ -255,10 +259,8 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
         return false;
     }
 
-    // --- Copia tag ID3 ---
     copyID3Tags(inputFile, tempFile);
 
-    // --- Sostituisci file ---
     QFile::remove(outputFile);
     if(!QFile::rename(tempFile, outputFile)) {
         logMessage("Errore nel rinominare " + tempFile + " → " + outputFile, Qt::red);
