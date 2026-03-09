@@ -73,4 +73,11 @@ public:
 
         cb(success, errorMsg);
     }
+
+    private:
+        QString inputFile;
+        QString outputFile;
+        double targetPeak;
+        QStringList ffmpegParams;
+        std::function<void(bool,const QString&)> cb;
 };
