@@ -1,64 +1,40 @@
-#pragma once
+#ifndef MAINWINDOW_H
+#define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QString>
-#include <QColor>
-#include <QAtomicInt>
+#include <QTextEdit>
+#include <QPushButton>
+#include <QProgressBar>
 #include <QStringList>
-
-QT_BEGIN_NAMESPACE
-class QPushButton;
-class QLabel;
-class QTextEdit;
-class QProgressBar;
-class QLineEdit;
-class QComboBox;
-class QCheckBox;
-QT_END_NAMESPACE
 
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
+
 public:
-    MainWindow(QWidget *parent = nullptr);
+    explicit MainWindow(QWidget *parent = nullptr);
+
+    void processFile(const QString &inputFile);
+    bool normalizeSingleFile(const QString &inputFile, const QString &outputFile);
+    void copyID3Tags(const QString &inputFile, const QString &outputFile);
+    void logMessage(const QString &msg);
+
+protected:
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
 
 private slots:
-    void browseInput();
-    void browseOutput();
-    void startNormalization();
-    void stopNormalization();
+    void selectFolder();
 
 private:
-    void logMessage(const QString &msg, const QColor &color = Qt::black);
-    void updateProgress();
-    void processFiles();
-    bool normalizeSingleFile(const QString &inputFile, const QString &outputFile, double targetPeak, const QStringList &ffmpegAudioParams);
-    void copyID3Tags(const QString &src, const QString &dst);
+    QStringList scanMp3Recursive(const QString &path);
 
-    // GUI
-    QLineEdit *inputEntry;
-    QLineEdit *outputEntry;
-    QLineEdit *peakEntry;
-    QComboBox *qualityCombo;
-    QCheckBox *overwriteCheck;
-    QPushButton *inputButton;
-    QPushButton *outputButton;
-    QPushButton *startButton;
-    QPushButton *stopButton;
-    QLabel *statusLabel;
-    QTextEdit *logText;
+    QTextEdit *logBox;
+    QPushButton *selectButton;
     QProgressBar *progressBar;
 
-    // Stato
-    QString inputDirPath;
-    QString outputDirPath;
-    double targetPeak = 0.0;
-    QString quality;
-    bool overwrite = false;
-    bool isRunning = false;
-    bool stopFlag = false;
-
-    QStringList mp3Files;
-    QAtomicInt processedFiles;
-    QStringList failedFiles;
+    int totalFiles;
+    int processedFiles;
 };
+
+#endif
