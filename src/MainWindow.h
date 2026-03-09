@@ -37,4 +37,16 @@ class MainWindow : public QMainWindow
         void copyID3Tags(const QString &src, const QString &dst);
 
         // GUI
+        QLineEdit *inputEntry;
+        QLineEdit *outputEntry;
+        QLineEdit *peakEntry;
+        QComboBox *qualityCombo;
+        QCheckBox *overwriteCheck;
+        QPushButton *inputButton;
+        QPushButton *outputButton;
+        QPushButton *startButton;
+        QPushButton *stopbutton;
+        QLabel *statusLabel;
+        QTextEdit *logText;
+        QProgressBar *progressBar;
 };
