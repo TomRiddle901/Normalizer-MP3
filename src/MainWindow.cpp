@@ -16,11 +16,10 @@
 #include <QFile>
 #include <QThread>
 #include <QTimer>
+#include <QRegularExpression>
 
 #include <taglib/fileref.h>
 #include <taglib/tag.h>
-#include <regex>
-#include <functional>
 
 // --- Costruttore MainWindow ---
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
@@ -213,30 +212,36 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
     QStringList cmdPeak = {"-i", inputFile, "-af", "volumedetect", "-f", "null", "-"};
     QProcess peakProc;
     peakProc.start(ffmpegProgram, cmdPeak);
-    peakProc.waitForFinished(-1);
 
-    QString peakOutput = peakProc.readAllStandardError();
-    QStringList lines = peakOutput.split('\n');
-
-    double currentPeak = -1000.0; // valore impossibile per verificare fallimento
-
-    for (const QString &line : lines) {
-        if (line.contains("max_volume")) {
-            QStringList parts = line.split(":");
-            if (parts.size() >= 2) {
-                bool ok = false;
-                double val = parts[1].trimmed().remove("dB").toDouble(&ok);
-                if (ok) {
-                    currentPeak = val;
-                    break;
-                }
-            }
-        }
+    if (!peakProc.waitForFinished(-1) || peakProc.exitStatus() != QProcess::NormalExit) {
+        logMessage("ffmpeg volumedetect non terminato correttamente per " + inputFile, Qt::red);
+        return false;
     }
 
-    if(currentPeak <= -999) {
+    const QString peakOutput = QString::fromUtf8(peakProc.readAllStandardError());
+    const QRegularExpression peakRegex(R"(max_volume:\s*(-?(?:\d+(?:\.\d+)?|inf))\s*dB)",
+                                       QRegularExpression::CaseInsensitiveOption);
+
+    QRegularExpressionMatch match = peakRegex.match(peakOutput);
+    if (!match.hasMatch()) {
         logMessage("Impossibile rilevare max_volume per " + inputFile, Qt::red);
         return false;
+    }
+
+    const QString rawPeak = match.captured(1).trimmed().toLower();
+    double currentPeak = 0.0;
+    if (rawPeak == "-inf") {
+        // Traccia completamente silenziosa: non applichiamo guadagno.
+        currentPeak = targetPeak;
+        logMessage("Avviso: max_volume = -inf (silenzio), guadagno impostato a 0 dB per " + inputFile,
+                   Qt::darkYellow);
+    } else {
+        bool ok = false;
+        currentPeak = rawPeak.toDouble(&ok);
+        if (!ok) {
+            logMessage("Valore max_volume non valido ('" + rawPeak + "') per " + inputFile, Qt::red);
+            return false;
+        }
     }
 
     double gain = targetPeak - currentPeak;
@@ -244,7 +249,7 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
     // --- Normalizzazione ---
     QStringList cmdNorm = {
         "-i", inputFile,
-        "-af", QString("volume=%1dB").arg(gain),
+        "-af", QString("volume=%1dB").arg(gain, 0, 'f', 2),
         "-c:a", "libmp3lame"
     };
     cmdNorm.append(ffmpegAudioParams);
