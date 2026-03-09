@@ -214,10 +214,9 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
     QStringList cmdPeak = {"-i", inputFile, "-af", "volumedetect", "-f", "null", "-"};
     peakProc.start(ffmpegProgram, cmdPeak);
     peakProc.waitForFinished(-1);
-    QString stderrPeak = peakProc.readAllStandardError();
 
-    QString stderrPeak = peakProc.readAllStandardError();
-    std::string stderrStr = stderrPeak.toStdString();  // salvata in variabile stabile
+    QString stderrPeak = peakProc.readAllStandardError();  // <-- UNA sola dichiarazione
+    std::string stderrStr = stderrPeak.toStdString();      // converti in std::string stabile
 
     // Regex compatibile con numeri negativi e decimali
     std::regex rx("max_volume:\\s*([-+]?[0-9]*\\.?[0-9]+)\\s*dB");
