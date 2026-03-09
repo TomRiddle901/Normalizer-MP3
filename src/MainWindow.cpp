@@ -22,8 +22,7 @@
 #include <regex>
 #include <functional>
 
-//  MainWindow 
-
+// --- Costruttore MainWindow ---
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     auto central = new QWidget(this);
     auto layout = new QVBoxLayout(central);
@@ -92,8 +91,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     resize(700, 600);
 }
 
-// Slots
-
+// --- Slots ---
 void MainWindow::browseInput() {
     inputDirPath = QFileDialog::getExistingDirectory(this, "Seleziona cartella di input");
     inputEntry->setText(inputDirPath);
@@ -121,8 +119,7 @@ void MainWindow::updateProgress() {
     progressBar->setValue(val);
 }
 
-// Normalizzazione
-
+// --- Normalizzazione ---
 void MainWindow::startNormalization() {
     if (isRunning) return;
 
@@ -157,16 +154,7 @@ void MainWindow::startNormalization() {
     stopButton->setEnabled(true);
     progressBar->setValue(0);
 
-    // Parametri ffmpeg qualità
-    QStringList ffmpegParams;
-    if (quality.startsWith("VBR 0")) ffmpegParams = {"-q:a", "0"};
-    else if (quality.startsWith("VBR 5")) ffmpegParams = {"-q:a", "5"};
-    else if (quality.startsWith("CBR 320")) ffmpegParams = {"-b:a", "320k"};
-    else if (quality.startsWith("CBR 256")) ffmpegParams = {"-b:a", "256k"};
-    else if (quality.startsWith("CBR 192")) ffmpegParams = {"-b:a", "192k"};
-
-    // Start normalizzazione 1 file alla volta
-    QTimer::singleShot(0, [this, ffmpegParams]() { processNextFile(); });
+    QTimer::singleShot(0, [this]() { processNextFile(); });
 }
 
 void MainWindow::processNextFile() {
@@ -195,7 +183,6 @@ void MainWindow::processNextFile() {
         return;
     }
 
-    // Parametri ffmpeg qualità
     QStringList ffmpegParams;
     if (quality.startsWith("VBR 0")) ffmpegParams = {"-q:a", "0"};
     else if (quality.startsWith("VBR 5")) ffmpegParams = {"-q:a", "5"};
@@ -214,12 +201,10 @@ void MainWindow::processNextFile() {
     processedFiles++;
     updateProgress();
 
-    // Chiamata ricorsiva al file successivo
     QTimer::singleShot(0, [this]() { processNextFile(); });
 }
 
-// ------------------------- Funzioni core -------------------------
-
+// --- Funzioni core ---
 bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &outputFile, double targetPeak, const QStringList &ffmpegAudioParams) {
     QString tempFile = outputFile + ".tmp.mp3";
     QString ffmpegProgram = "./thirdparty/ffmpeg/ffmpeg";
@@ -231,7 +216,7 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
     peakProc.waitForFinished(-1);
     QString stderrPeak = peakProc.readAllStandardError();
 
-    std::regex rx("max_volume:\\s*([-\\d.]+)");
+    std::regex rx(R"(max_volume:\s*([-+]?\d*\.?\d+))"); // compatibile con numeri negativi e decimali
     std::smatch match;
     double currentPeak = 0.0;
     std::string s = stderrPeak.toStdString();
@@ -244,9 +229,10 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
 
     double gain = targetPeak - currentPeak;
 
-    // Applica gain
+    // Normalizzazione
     QStringList cmdNorm = {"-i", inputFile, "-af", QString("volume=%1dB").arg(gain),
-                           "-c:a", "libmp3lame"};
+                           "-map", "0:v?", "-map", "0:a:0?", "-map", "0:s?", "-map", "0:d?", "-map", "0:t?",
+                           "-c:v", "copy", "-c:a", "libmp3lame"};
     cmdNorm.append(ffmpegAudioParams);
     cmdNorm << "-y" << tempFile;
 
