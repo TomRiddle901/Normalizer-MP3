@@ -216,16 +216,20 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
     peakProc.waitForFinished(-1);
     QString stderrPeak = peakProc.readAllStandardError();
 
-    std::regex rx(R"(max_volume:\s*([-+]?\d*\.?\d+))"); // compatibile con numeri negativi e decimali
+    QString stderrPeak = peakProc.readAllStandardError();
+    std::string stderrStr = stderrPeak.toStdString();  // salvata in variabile stabile
+
+    // Regex compatibile con numeri negativi e decimali
+    std::regex rx("max_volume:\\s*([-+]?[0-9]*\\.?[0-9]+)\\s*dB");
     std::smatch match;
     double currentPeak = 0.0;
-    std::string s = stderrPeak.toStdString();
-    if(std::regex_search(s, match, rx)) {
-        currentPeak = std::stod(match[1]);
-    } else {
+
+    if (std::regex_search(stderrStr, match, rx)) {
+        currentPeak = std::stod(match[1].str());
+    } else {    
         logMessage("Impossibile rilevare max_volume per " + inputFile, Qt::red);
         return false;
-    }
+    }   
 
     double gain = targetPeak - currentPeak;
 
