@@ -14,9 +14,11 @@
 #include <QDirIterator>
 #include <QProcess>
 #include <QFile>
+#include <QFileInfo>
 #include <QThread>
 #include <QTimer>
 #include <QRegularExpression>
+#include <QCoreApplication>
 
 #include <taglib/fileref.h>
 #include <taglib/tag.h>
@@ -206,15 +208,33 @@ void MainWindow::processNextFile() {
 // --- Funzioni core ---
 bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &outputFile, double targetPeak, const QStringList &ffmpegAudioParams) {
     QString tempFile = outputFile + ".tmp.mp3";
-    QString ffmpegProgram = "./thirdparty/ffmpeg/ffmpeg";
+    QString ffmpegProgram;
+
+    const QString appDirFfmpeg = QDir(QCoreApplication::applicationDirPath()).filePath("thirdparty/ffmpeg/ffmpeg");
+    const QString cwdFfmpeg = QDir::current().filePath("thirdparty/ffmpeg/ffmpeg");
+    if (QFileInfo::exists(appDirFfmpeg) && QFileInfo(appDirFfmpeg).isExecutable()) {
+        ffmpegProgram = appDirFfmpeg;
+    } else if (QFileInfo::exists(cwdFfmpeg) && QFileInfo(cwdFfmpeg).isExecutable()) {
+        ffmpegProgram = cwdFfmpeg;
+    } else {
+        // fallback: ffmpeg nel PATH di sistema
+        ffmpegProgram = "ffmpeg";
+    }
 
     // --- Rilevazione picco ---
     QStringList cmdPeak = {"-i", inputFile, "-af", "volumedetect", "-f", "null", "-"};
     QProcess peakProc;
     peakProc.start(ffmpegProgram, cmdPeak);
 
-    if (!peakProc.waitForFinished(-1) || peakProc.exitStatus() != QProcess::NormalExit) {
-        logMessage("ffmpeg volumedetect non terminato correttamente per " + inputFile, Qt::red);
+    if (!peakProc.waitForFinished(-1) || peakProc.error() == QProcess::FailedToStart) {
+        logMessage("ffmpeg volumedetect non avviato per " + inputFile + " [" + peakProc.errorString() + "]", Qt::red);
+        logMessage("Percorso ffmpeg usato: " + ffmpegProgram, Qt::darkYellow);
+        return false;
+    }
+
+    if (peakProc.exitStatus() != QProcess::NormalExit || peakProc.exitCode() != 0) {
+        logMessage("ffmpeg volumedetect fallito per " + inputFile + " (exit code " + QString::number(peakProc.exitCode()) + ")", Qt::red);
+        logMessage(QString::fromUtf8(peakProc.readAllStandardError()), Qt::darkYellow);
         return false;
     }
 
@@ -257,10 +277,15 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
 
     QProcess normProc;
     normProc.start(ffmpegProgram, cmdNorm);
-    normProc.waitForFinished(-1);
+    if (!normProc.waitForFinished(-1) || normProc.error() == QProcess::FailedToStart) {
+        logMessage("ffmpeg normalizzazione non avviata per " + inputFile + " [" + normProc.errorString() + "]", Qt::red);
+        logMessage("Percorso ffmpeg usato: " + ffmpegProgram, Qt::darkYellow);
+        return false;
+    }
 
-    if(normProc.exitCode() != 0) {
-        logMessage("ffmpeg normalizzazione fallita per " + inputFile, Qt::red);
+    if(normProc.exitStatus() != QProcess::NormalExit || normProc.exitCode() != 0) {
+        logMessage("ffmpeg normalizzazione fallita per " + inputFile + " (exit code " + QString::number(normProc.exitCode()) + ")", Qt::red);
+        logMessage(QString::fromUtf8(normProc.readAllStandardError()), Qt::darkYellow);
         return false;
     }
 
