@@ -123,4 +123,15 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
     // Sovrascrivi
     overwriteCheck = new QCheckBox("Sovrascrivi file esistenti");
     layout->addWidget(overwriteCheck);
+
+    // Start/Stop
+    auto ctrlLayout = new QHBoxLayout();
+    startButton = new QPushButton("Avvia normalizzazione");
+    stopButton = new QPushButton("Stop");
+    stopButton->setEnabled(false);
+    ctrlLayout->addWidget(startButton);
+    ctrlLayout->addWidget(stopButton);
+    layout->addLayout(ctrlLayout);
+    connect(startButton, &QPushButton::clicked, this, &MainWindow::startNormalization);
+    connect(stopButton, &QPushButton::clicked, this, &MainWindow::stopNormalization);
 }
