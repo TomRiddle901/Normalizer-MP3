@@ -49,4 +49,17 @@ class MainWindow : public QMainWindow
         QLabel *statusLabel;
         QTextEdit *logText;
         QProgressBar *progressBar;
-};
+
+        // Stato
+        QString inputDirPath;
+        QString outputDirPath;
+        double targetPeak = 0.0;
+        QString quality;
+        bool overwrite = false;
+        bool isRunning = false;
+        bool stopFlag = false;
+
+        QStringList mp3Files;
+        QAtomicInt processedfiles;
+        QStringList failedFiles;
+}
