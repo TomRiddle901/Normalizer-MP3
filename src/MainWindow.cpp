@@ -148,3 +148,14 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
     setWindowTitle("Normalizzatore MP3");
     resize(700, 600);
 }
+
+// Slots
+void MainWindow::browseInput(){
+    inputDirPath = QFileDialog::getExistingDirectory(this, "Seleziona cartella di input");
+    inputEntry->setText(inputDirPath);
+}
+void MainWindow::browseOutput(){
+    outputDirPath = QFileDialog::getExistingDirectory(this, "Seleziona cartella di output");
+    outputEntry->setText(outputDirPath);
+}
+
