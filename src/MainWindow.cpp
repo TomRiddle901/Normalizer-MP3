@@ -95,4 +95,13 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
     inLayout->addWidget(inputButton);
     layout->addLayout(inLayout);
     connect(inputButton, &QPushButton::clicked, this, &MainWindow::browseInput);
+
+    // Output
+    auto outLayout = new QHBoxLayout();
+    outputEntry = new QLineEdit();
+    outputButton = new QPushButton();
+    outLayout->addWidget(outputEntry);
+    outLayout->addWidget(outputButton);
+    layout->addLayout(outLayout);
+    connect(outputButton, &QPushButton::clicked, this, &MainWindow::browseOutput);
 }
