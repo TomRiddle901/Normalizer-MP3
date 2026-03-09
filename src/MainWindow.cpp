@@ -53,5 +53,24 @@ public:
         }
 
         double gain = targetPeak - currentPeak;
+
+        // Applica gain
+        QStringList cmdNorm = {"-i", inputFile, "-af", QString("volume=%1dB").arg(gain), "-map", "0:v?", "-map", "0:a:0?", "-map", "0:s?",
+                                "-map", "0:d?", "-map", "0:t?", "-c:v", "copy", "c:a", "libmp3lame"};
+        cmdNorm.append(ffmpegParams);
+        cmdNorm << "-y" << tempFile;
+
+        QProcess normProc;
+        normProc.start(program, cmdNorm);
+        normProc.waitForFinished(-1);
+        if(normProc.exitCode() != 0){
+            errorMsg = "ffmpeg normalizzazione fallito";
+        }else{
+            QFile::remove(outputFile);
+            QFile::rename(tempFile, outputFile);
+            success = true;
+        }
+
+        cb(success, errorMsg);
     }
 };
