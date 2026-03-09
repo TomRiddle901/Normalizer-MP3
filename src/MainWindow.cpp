@@ -253,3 +253,24 @@ void MainWindow::startNormalization(){
     }   
 }
 
+void MainWindow::copyID3Tags(const QString &src, const QString &dst){
+    TagLib::FileRef srcFile(src.toUtf8().constData());
+    TagLib::FileRef dstFile(dst.toUtf8().constData());
+
+    if (!srcFile.isNull() && !dstFile.isNull() && srcFile.tag() && dstFile.tag()){
+        TagLib::Tag *s = srcFile.tag();
+        TagLib::Tag *d = dstFile.tag();
+
+        d->setTitle(s->title());
+        d->setArtist(s->artist());
+        d->setAlbum(s->album());
+        d->setComment(s->comment());
+        d->setGenre(s->genre());
+        d->setYear(s->year());
+        d->setTrack(s->track());
+        
+        dstFile.save();
+    }else{
+        logMessage("Avvio: copia tag fallita per " + dst, Qt::darkYellow);
+    }
+}
