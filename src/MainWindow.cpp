@@ -119,4 +119,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
     qualityCombo->addItems({"VBR 0 (massima)", "VBR 5 (media)", "CBR 320k", "CBR 256k", "CBR 192k"});
     qualLayout->addWidget(qualityCombo);
     layout->addLayout(qualLayout);
+
+    // Sovrascrivi
+    overwriteCheck = new QCheckBox("Sovrascrivi file esistenti");
+    layout->addWidget(overwriteCheck);
 }
