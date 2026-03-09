@@ -135,6 +135,7 @@ Normalizzatore: CMakeFiles/Normalizzatore.dir/src/main.cpp.o
 Normalizzatore: CMakeFiles/Normalizzatore.dir/src/MainWindow.cpp.o
 Normalizzatore: CMakeFiles/Normalizzatore.dir/build.make
 Normalizzatore: /usr/lib/x86_64-linux-gnu/libQt6Widgets.so.6.9.2
+Normalizzatore: /usr/lib/x86_64-linux-gnu/libtag.so.2.0.2
 Normalizzatore: /usr/lib/x86_64-linux-gnu/libQt6Gui.so.6.9.2
 Normalizzatore: /usr/lib/x86_64-linux-gnu/libGLX.so
 Normalizzatore: /usr/lib/x86_64-linux-gnu/libOpenGL.so

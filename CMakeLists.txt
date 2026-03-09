@@ -18,7 +18,7 @@ qt_add_executable(Normalizzatore
 
 target_link_libraries(Normalizzatore
                     PRIVATE Qt6::Widgets
-                    PRIVATE Taglib::Taglib)
+                    PRIVATE TagLib::TagLib)
 
 install(TARGETS Normalizzatore
         RUNTIME DESTINATION bin)

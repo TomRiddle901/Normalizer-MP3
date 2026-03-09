@@ -352,6 +352,9 @@ Qt6Widgets_DIR:PATH=/usr/lib/x86_64-linux-gnu/cmake/Qt6Widgets
 //The directory containing a CMake configuration file for Qt6.
 Qt6_DIR:PATH=/usr/lib/x86_64-linux-gnu/cmake/Qt6
 
+//The directory containing a CMake configuration file for Taglib.
+Taglib_DIR:PATH=/usr/lib/x86_64-linux-gnu/cmake/taglib
+
 //Path to a program.
 Vulkan_GLSLANG_VALIDATOR_EXECUTABLE:FILEPATH=Vulkan_GLSLANG_VALIDATOR_EXECUTABLE-NOTFOUND
 
