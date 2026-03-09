@@ -143,4 +143,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
     logText = new QTextEdit;
     logText->setReadOnly(true);
     layout->addWidget(logText);
+
+    setCentralWidget(central);
+    setWindowTitle("Normalizzatore MP3");
+    resize(700, 600);
 }
