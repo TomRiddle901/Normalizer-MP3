@@ -19,6 +19,7 @@
 #include <QTimer>
 #include <QRegularExpression>
 #include <QCoreApplication>
+#include <QtMath>
 
 #include <taglib/fileref.h>
 #include <taglib/tag.h>
@@ -221,69 +222,21 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
         ffmpegProgram = "ffmpeg";
     }
 
-    // --- Rilevazione picco ---
-    // Usa tutti i thread disponibili per ridurre i tempi di elaborazione.
-    // "0" = auto (ffmpeg decide in base ai core disponibili).
-    QStringList cmdPeak = {
-        "-threads", "0",
-        "-filter_threads", "0",
-        "-i", inputFile,
-        "-af", "volumedetect",
-        "-f", "null", "-"
-    };
+    // --- Normalizzazione (single-pass, più veloce del flow a 2 passaggi) ---
+    // Converte target in dBFS (es. -1.0 dB) nel valore lineare richiesto da dynaudnorm (0..1).
+    const double peakLinear = qPow(10.0, targetPeak / 20.0);
+    const double boundedPeakLinear = qBound(0.1, peakLinear, 1.0);
 
-    QProcess peakProc;
-    peakProc.start(ffmpegProgram, cmdPeak);
-
-    if (!peakProc.waitForFinished(-1) || peakProc.error() == QProcess::FailedToStart) {
-        logMessage("ffmpeg volumedetect non avviato per " + inputFile + " [" + peakProc.errorString() + "]", Qt::red);
-        logMessage("Percorso ffmpeg usato: " + ffmpegProgram, Qt::darkYellow);
-        return false;
-    }
-
-    if (peakProc.exitStatus() != QProcess::NormalExit || peakProc.exitCode() != 0) {
-        logMessage("ffmpeg volumedetect fallito per " + inputFile + " (exit code " + QString::number(peakProc.exitCode()) + ")", Qt::red);
-        logMessage(QString::fromUtf8(peakProc.readAllStandardError()), Qt::darkYellow);
-        return false;
-    }
-
-    const QString peakOutput = QString::fromUtf8(peakProc.readAllStandardError());
-    const QRegularExpression peakRegex(R"(max_volume:\s*(-?(?:\d+(?:\.\d+)?|inf))\s*dB)",
-                                       QRegularExpression::CaseInsensitiveOption);
-
-    QRegularExpressionMatch match = peakRegex.match(peakOutput);
-    if (!match.hasMatch()) {
-        logMessage("Impossibile rilevare max_volume per " + inputFile, Qt::red);
-        return false;
-    }
-
-    const QString rawPeak = match.captured(1).trimmed().toLower();
-    double currentPeak = 0.0;
-    if (rawPeak == "-inf") {
-        // Traccia completamente silenziosa: non applichiamo guadagno.
-        currentPeak = targetPeak;
-        logMessage("Avviso: max_volume = -inf (silenzio), guadagno impostato a 0 dB per " + inputFile,
-                   Qt::darkYellow);
-    } else {
-        bool ok = false;
-        currentPeak = rawPeak.toDouble(&ok);
-        if (!ok) {
-            logMessage("Valore max_volume non valido ('" + rawPeak + "') per " + inputFile, Qt::red);
-            return false;
-        }
-    }
-
-    double gain = targetPeak - currentPeak;
-
-    // --- Normalizzazione ---
     QStringList cmdNorm = {
         "-threads", "0",
         "-filter_threads", "0",
         "-i", inputFile,
-        "-af", QString("volume=%1dB").arg(gain, 0, 'f', 2),
+        // dynaudnorm evita il pass di analisi volumedetect e riduce il tempo totale per file.
+        "-af", QString("dynaudnorm=p=%1:m=50:s=12").arg(boundedPeakLinear, 0, 'f', 4),
+        "-map_metadata", "0",
+        "-vn", "-sn", "-dn",
         "-c:a", "libmp3lame"
     };
-    
     cmdNorm.append(ffmpegAudioParams);
     cmdNorm << "-y" << tempFile;
 
@@ -300,8 +253,6 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
         logMessage(QString::fromUtf8(normProc.readAllStandardError()), Qt::darkYellow);
         return false;
     }
-
-    copyID3Tags(inputFile, tempFile);
 
     QFile::remove(outputFile);
     if(!QFile::rename(tempFile, outputFile)) {
