@@ -19,7 +19,6 @@
 #include <QTimer>
 #include <QRegularExpression>
 #include <QCoreApplication>
-#include <QtMath>
 #include <QtConcurrent/QtConcurrent>
 #include <QFutureWatcher>
 
@@ -255,22 +254,55 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
         ffmpegProgram = "ffmpeg";
     }
 
-    // --- Normalizzazione (single-pass, più veloce del flow a 2 passaggi) ---
-    // Converte target in dBFS (es. -1.0 dB) nel valore lineare richiesto da dynaudnorm (0..1).
-    const double peakLinear = qPow(10.0, targetPeak / 20.0);
-    const double boundedPeakLinear = qBound(0.1, peakLinear, 1.0);
+    // --- Normalizzazione (allineata al flusso Python di riferimento) ---
+    QStringList cmdPeak = {
+        "-i", inputFile,
+        "-map", "0:a:0?",
+        "-af", "volumedetect",
+        "-f", "null", "-"
+    };
+
+    QProcess peakProc;
+    peakProc.start(ffmpegProgram, cmdPeak);
+    if (!peakProc.waitForFinished(-1) || peakProc.error() == QProcess::FailedToStart) {
+        return false;
+    }
+    if (peakProc.exitStatus() != QProcess::NormalExit || peakProc.exitCode() != 0) {
+        return false;
+    }
+
+    const QString peakOutput = QString::fromUtf8(peakProc.readAllStandardError());
+    const QRegularExpression peakRegex(R"(max_volume:\s*([-\d.]+))",
+                                       QRegularExpression::CaseInsensitiveOption);
+    const QRegularExpressionMatch match = peakRegex.match(peakOutput);
+    if (!match.hasMatch()) {
+        return false;
+    }
+
+    bool ok = false;
+    const double currentPeak = match.captured(1).toDouble(&ok);
+    if (!ok) {
+        return false;
+    }
+
+    const double gain = targetPeak - currentPeak;
 
     QStringList cmdNorm = {
-        // In modalità multi-file concorrente è più efficiente usare 1 thread per processo
-        // e lasciare alla concorrenza il saturare tutti i core.
-        "-threads", "1",
-        "-filter_threads", "1",
         "-i", inputFile,
-        // dynaudnorm evita il pass di analisi volumedetect e riduce il tempo totale per file.
-        "-af", QString("dynaudnorm=p=%1:m=50:s=12").arg(boundedPeakLinear, 0, 'f', 4),
+        "-af", QString("volume=%1dB").arg(gain, 0, 'f', 2),
+        "-map", "0:v?",
+        "-map", "0:a:0?",
+        "-map", "0:s?",
+        "-map", "0:d?",
+        "-map", "0:t?",
+        "-c:v", "copy",
+        "-c:a", "libmp3lame",
+        "-c:s", "copy",
+        "-c:d", "copy",
+        "-c:t", "copy",
         "-map_metadata", "0",
-        "-vn", "-sn", "-dn",
-        "-c:a", "libmp3lame"
+        "-id3v2_version", "3",
+        "-write_id3v1", "1"
     };
     cmdNorm.append(ffmpegAudioParams);
     cmdNorm << "-y" << tempFile;
@@ -284,6 +316,8 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
     if(normProc.exitStatus() != QProcess::NormalExit || normProc.exitCode() != 0) {
         return false;
     }
+
+    copyID3Tags(inputFile, tempFile);
 
     QFile::remove(outputFile);
     if(!QFile::rename(tempFile, outputFile)) {
