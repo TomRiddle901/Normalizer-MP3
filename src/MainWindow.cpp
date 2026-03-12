@@ -20,6 +20,8 @@
 #include <QRegularExpression>
 #include <QCoreApplication>
 #include <QtMath>
+#include <QtConcurrent/QtConcurrent>
+#include <QFutureWatcher>
 
 #include <taglib/fileref.h>
 #include <taglib/tag.h>
@@ -152,6 +154,9 @@ void MainWindow::startNormalization() {
     failedFiles.clear();
     stopFlag = false;
     isRunning = true;
+    setProperty("dispatchedFiles", 0);
+    setProperty("activeJobs", 0);
+    setProperty("maxParallelJobs", qMax(1, QThread::idealThreadCount()));
     startButton->setEnabled(false);
     stopButton->setEnabled(true);
     progressBar->setValue(0);
@@ -160,7 +165,11 @@ void MainWindow::startNormalization() {
 }
 
 void MainWindow::processNextFile() {
-    if (stopFlag || processedFiles >= mp3Files.size()) {
+    int dispatchedFiles = property("dispatchedFiles").toInt();
+    int activeJobs = property("activeJobs").toInt();
+    int maxParallelJobs = property("maxParallelJobs").toInt();
+
+    if ((stopFlag || processedFiles >= mp3Files.size()) && activeJobs == 0) {
         isRunning = false;
         startButton->setEnabled(true);
         stopButton->setEnabled(false);
@@ -172,38 +181,62 @@ void MainWindow::processNextFile() {
         return;
     }
 
-    QString inputFile = mp3Files[processedFiles];
-    QString relPath = QDir(inputDirPath).relativeFilePath(inputFile);
-    QString outputFile = QDir(outputDirPath).filePath(relPath);
-    QDir().mkpath(QFileInfo(outputFile).path());
+    while (!stopFlag && activeJobs < maxParallelJobs && dispatchedFiles < mp3Files.size()) {
+        const QString inputFile = mp3Files[dispatchedFiles];
+        const QString relPath = QDir(inputDirPath).relativeFilePath(inputFile);
+        const QString outputFile = QDir(outputDirPath).filePath(relPath);
+        QDir().mkpath(QFileInfo(outputFile).path());
 
-    if(QFile::exists(outputFile) && !overwrite) {
-        logMessage("Salta (esistente): " + relPath, Qt::blue);
-        processedFiles++;
-        updateProgress();
-        QTimer::singleShot(0, [this]() { processNextFile(); });
-        return;
+        dispatchedFiles++;
+
+        if(QFile::exists(outputFile) && !overwrite) {
+            logMessage("Salta (esistente): " + relPath, Qt::blue);
+            processedFiles++;
+            updateProgress();
+            continue;
+        }
+
+        QStringList ffmpegParams;
+        if (quality.startsWith("VBR 0")) ffmpegParams = {"-q:a", "0"};
+        else if (quality.startsWith("VBR 5")) ffmpegParams = {"-q:a", "5"};
+        else if (quality.startsWith("CBR 320")) ffmpegParams = {"-b:a", "320k"};
+        else if (quality.startsWith("CBR 256")) ffmpegParams = {"-b:a", "256k"};
+        else if (quality.startsWith("CBR 192")) ffmpegParams = {"-b:a", "192k"};
+
+        auto *watcher = new QFutureWatcher<bool>(this);
+        activeJobs++;
+        setProperty("activeJobs", activeJobs);
+        setProperty("dispatchedFiles", dispatchedFiles);
+
+        connect(watcher, &QFutureWatcher<bool>::finished, this,
+                [this, watcher, relPath]() {
+                    const bool success = watcher->result();
+                    int jobs = property("activeJobs").toInt();
+                    setProperty("activeJobs", qMax(0, jobs - 1));
+
+                    if (success) logMessage("OK: " + relPath, Qt::green);
+                    else {
+                        logMessage("ERRORE: " + relPath, Qt::red);
+                        failedFiles << relPath;
+                    }
+
+                    processedFiles++;
+                    updateProgress();
+                    watcher->deleteLater();
+                    QTimer::singleShot(0, this, [this]() { processNextFile(); });
+                });
+
+        watcher->setFuture(QtConcurrent::run([this, inputFile, outputFile, ffmpegParams]() {
+            return normalizeSingleFile(inputFile, outputFile, targetPeak, ffmpegParams);
+        }));
     }
 
-    QStringList ffmpegParams;
-    if (quality.startsWith("VBR 0")) ffmpegParams = {"-q:a", "0"};
-    else if (quality.startsWith("VBR 5")) ffmpegParams = {"-q:a", "5"};
-    else if (quality.startsWith("CBR 320")) ffmpegParams = {"-b:a", "320k"};
-    else if (quality.startsWith("CBR 256")) ffmpegParams = {"-b:a", "256k"};
-    else if (quality.startsWith("CBR 192")) ffmpegParams = {"-b:a", "192k"};
+    setProperty("dispatchedFiles", dispatchedFiles);
+    setProperty("activeJobs", activeJobs);
 
-    bool success = normalizeSingleFile(inputFile, outputFile, targetPeak, ffmpegParams);
-
-    if (success) logMessage("OK: " + relPath, Qt::green);
-    else {
-        logMessage("ERRORE: " + relPath, Qt::red);
-        failedFiles << relPath;
+    if ((stopFlag || processedFiles >= mp3Files.size()) && activeJobs == 0) {
+        QTimer::singleShot(0, this, [this]() { processNextFile(); });
     }
-
-    processedFiles++;
-    updateProgress();
-
-    QTimer::singleShot(0, [this]() { processNextFile(); });
 }
 
 // --- Funzioni core ---
@@ -228,8 +261,10 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
     const double boundedPeakLinear = qBound(0.1, peakLinear, 1.0);
 
     QStringList cmdNorm = {
-        "-threads", "0",
-        "-filter_threads", "0",
+        // In modalità multi-file concorrente è più efficiente usare 1 thread per processo
+        // e lasciare alla concorrenza il saturare tutti i core.
+        "-threads", "1",
+        "-filter_threads", "1",
         "-i", inputFile,
         // dynaudnorm evita il pass di analisi volumedetect e riduce il tempo totale per file.
         "-af", QString("dynaudnorm=p=%1:m=50:s=12").arg(boundedPeakLinear, 0, 'f', 4),
@@ -243,20 +278,15 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
     QProcess normProc;
     normProc.start(ffmpegProgram, cmdNorm);
     if (!normProc.waitForFinished(-1) || normProc.error() == QProcess::FailedToStart) {
-        logMessage("ffmpeg normalizzazione non avviata per " + inputFile + " [" + normProc.errorString() + "]", Qt::red);
-        logMessage("Percorso ffmpeg usato: " + ffmpegProgram, Qt::darkYellow);
         return false;
     }
 
     if(normProc.exitStatus() != QProcess::NormalExit || normProc.exitCode() != 0) {
-        logMessage("ffmpeg normalizzazione fallita per " + inputFile + " (exit code " + QString::number(normProc.exitCode()) + ")", Qt::red);
-        logMessage(QString::fromUtf8(normProc.readAllStandardError()), Qt::darkYellow);
         return false;
     }
 
     QFile::remove(outputFile);
     if(!QFile::rename(tempFile, outputFile)) {
-        logMessage("Errore nel rinominare " + tempFile + " → " + outputFile, Qt::red);
         return false;
     }
 
