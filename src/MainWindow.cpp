@@ -222,7 +222,16 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
     }
 
     // --- Rilevazione picco ---
-    QStringList cmdPeak = {"-i", inputFile, "-af", "volumedetect", "-f", "null", "-"};
+    // Usa tutti i thread disponibili per ridurre i tempi di elaborazione.
+    // "0" = auto (ffmpeg decide in base ai core disponibili).
+    QStringList cmdPeak = {
+        "-threads", "0",
+        "-filter_threads", "0",
+        "-i", inputFile,
+        "-af", "volumedetect",
+        "-f", "null", "-"
+    };
+
     QProcess peakProc;
     peakProc.start(ffmpegProgram, cmdPeak);
 
@@ -268,10 +277,13 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
 
     // --- Normalizzazione ---
     QStringList cmdNorm = {
+        "-threads", "0",
+        "-filter_threads", "0",
         "-i", inputFile,
         "-af", QString("volume=%1dB").arg(gain, 0, 'f', 2),
         "-c:a", "libmp3lame"
     };
+    
     cmdNorm.append(ffmpegAudioParams);
     cmdNorm << "-y" << tempFile;
 
