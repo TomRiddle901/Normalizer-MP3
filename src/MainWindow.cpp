@@ -69,8 +69,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     overwriteCheck = new QCheckBox("Sovrascrivi file esistenti");
     layout->addWidget(overwriteCheck);
 
-    // Opzione di copia tag avanzata/sicura (più lenta)
-    auto safeTagCopyCheck = new QCheckBox("opia sicura ID3Tags (più lenta)");
+    // Opzione copia tag avanzata/sicura (più lenta)
+    auto safeTagCopyCheck = new QCheckBox("Copia sicura ID3Tags (fallback TagLib)");
     safeTagCopyCheck->setObjectName("safeTagCopyCheck");
     safeTagCopyCheck->setChecked(false);
     layout->addWidget(safeTagCopyCheck);
@@ -335,6 +335,7 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
     if(normProc.exitStatus() != QProcess::NormalExit || normProc.exitCode() != 0) {
         return false;
     }
+
 
     if (property("safeTagCopy").toBool()) {
         copyID3Tags(inputFile, tempFile);
