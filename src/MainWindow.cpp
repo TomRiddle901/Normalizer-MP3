@@ -137,6 +137,11 @@ void MainWindow::startNormalization() {
     targetPeak = peakEntry->text().toDouble();
     quality = qualityCombo->currentText();
     overwrite = overwriteCheck->isChecked();
+    if (auto safeTagCopyCheck = findChild<QCheckBox*>("safeTagCopyCheck")) {
+        setProperty("safeTagCopy", safeTagCopyCheck->isChecked());
+    } else {
+        setProperty("safeTagCopy", false);
+    }
 
     if (inputDirPath.isEmpty() || outputDirPath.isEmpty()) {
         logMessage("Seleziona la cartella di input/output", Qt::red);
@@ -329,6 +334,10 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
 
     if(normProc.exitStatus() != QProcess::NormalExit || normProc.exitCode() != 0) {
         return false;
+    }
+
+    if (property("safeTagCopy").toBool()) {
+        copyID3Tags(inputFile, tempFile);
     }
 
     QFile::remove(outputFile);
