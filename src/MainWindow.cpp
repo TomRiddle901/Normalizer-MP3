@@ -155,6 +155,7 @@ void MainWindow::startNormalization() {
     isRunning = true;
     setProperty("dispatchedFiles", 0);
     setProperty("activeJobs", 0);
+    setProperty("successFiles", 0);
     setProperty("maxParallelJobs", qMax(1, QThread::idealThreadCount()));
     startButton->setEnabled(false);
     stopButton->setEnabled(true);
@@ -213,8 +214,13 @@ void MainWindow::processNextFile() {
                     int jobs = property("activeJobs").toInt();
                     setProperty("activeJobs", qMax(0, jobs - 1));
 
-                    if (success) logMessage("OK: " + relPath, Qt::green);
-                    else {
+                    if (success) {
+                        const int successFiles = property("successFiles").toInt() + 1;
+                        setProperty("successFiles", successFiles);
+                        if (successFiles % 25 == 0 || successFiles == mp3Files.size()) {
+                            logMessage(QString("OK elaborati: %1").arg(successFiles), Qt::darkGreen);
+                        }
+                    } else {
                         logMessage("ERRORE: " + relPath, Qt::red);
                         failedFiles << relPath;
                     }
@@ -256,6 +262,7 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
 
     // --- Normalizzazione (allineata al flusso Python di riferimento) ---
     QStringList cmdPeak = {
+        "-threads", "1",
         "-i", inputFile,
         "-map", "0:a:0?",
         "-af", "volumedetect",
@@ -288,6 +295,7 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
     const double gain = targetPeak - currentPeak;
 
     QStringList cmdNorm = {
+        "-threads", "1",
         "-i", inputFile,
         "-af", QString("volume=%1dB").arg(gain, 0, 'f', 2),
         "-map", "0:v?",
@@ -316,8 +324,6 @@ bool MainWindow::normalizeSingleFile(const QString &inputFile, const QString &ou
     if(normProc.exitStatus() != QProcess::NormalExit || normProc.exitCode() != 0) {
         return false;
     }
-
-    copyID3Tags(inputFile, tempFile);
 
     QFile::remove(outputFile);
     if(!QFile::rename(tempFile, outputFile)) {
