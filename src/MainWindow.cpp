@@ -70,7 +70,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     layout->addWidget(overwriteCheck);
 
     // Opzione di copia tag avanzata/sicura (più lenta)
-    auto safeTagCopyCheck = new QCheckBox();
+    auto safeTagCopyCheck = new QCheckBox("opia sicura ID3Tags (più lenta)");
+    safeTagCopyCheck->setObjectName("safeTagCopyCheck");
+    safeTagCopyCheck->setChecked(false);
+    layout->addWidget(safeTagCopyCheck);
 
     // Start/Stop
     auto ctrlLayout = new QHBoxLayout();
