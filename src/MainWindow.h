@@ -41,6 +41,7 @@ private:
     QLineEdit *peakEntry;
     QComboBox *qualityCombo;
     QCheckBox *overwriteCheck;
+    QCheckBox *safeTagCopyCheck;
     QPushButton *inputButton;
     QPushButton *outputButton;
     QPushButton *startButton;

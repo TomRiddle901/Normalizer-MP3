@@ -69,6 +69,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     overwriteCheck = new QCheckBox("Sovrascrivi file esistenti");
     layout->addWidget(overwriteCheck);
 
+    // Opzione di copia tag avanzata/sicura (più lenta)
+    auto safeTagCopyCheck = new QCheckBox();
+
     // Start/Stop
     auto ctrlLayout = new QHBoxLayout();
     startButton = new QPushButton("Avvia normalizzazione");
